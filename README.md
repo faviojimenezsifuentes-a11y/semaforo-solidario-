@@ -16,20 +16,24 @@ La aplicación cubre las 16 historias priorizadas del backlog (HU17 quedó como 
 |---|---|---|
 | HU01 Registro con documento (DNI/CE/PTP); menores → alerta | LIMP-6 | `POST /api/trabajadores` |
 | HU02 Ingreso con celular y código OTP (5 min, bloqueo tras 5 fallos) | LIMP-7 | `POST /api/auth/otp/solicitar`, `POST /api/auth/otp/verificar` |
-| HU03 Validación por el promotor social | LIMP-8 | `POST /api/trabajadores/{id}/validacion` |
+| HU03 Validación por el promotor social; el trabajador recibe un aviso y, si se observa, ve el motivo y corrige | LIMP-8 | `POST /api/trabajadores/{id}/validacion`, `PUT /api/mi/registro` |
 | HU04 Registrar o cambiar cruce y horario (con historial) | LIMP-9 | `PUT /api/mi/cruce` |
 | HU05 QR personal (solo validados) | LIMP-10 | `GET /api/qr/{token}.svg` |
-| HU06 Propina con Yape/Plin: S/ 1, 2, 5, 10 u otro monto (pago simulado) | LIMP-11 | `POST /api/propinas` |
+| HU06 Propina con Yape/Plin: S/ 1, 2, 5, 10 u otro monto (pago simulado); aviso al trabajador con el monto | LIMP-11 | `POST /api/propinas`, `GET /api/mi/avisos` |
 | HU07 Historial de propinas (hoy/semana), solo el propio trabajador | LIMP-12 | `GET /api/mi/propinas` |
 | HU08 Calificar el servicio | LIMP-13 | `POST /api/propinas/{id}/calificacion` |
 | HU09 Programas sociales según documento y edad; solicitud de orientación | LIMP-14 | `GET /api/mi/programas`, `POST /api/mi/programas/{id}/solicitud` |
 | HU10 Capacitaciones con cupos / lista de espera y postulación a empleos | LIMP-15 | `POST /api/mi/capacitaciones/{id}/inscripcion`, `POST /api/mi/empleos/{id}/postulacion` |
 | HU11 Entrega de kits de seguridad (advierte si hubo una en < 3 meses) | LIMP-16 | `POST /api/trabajadores/{id}/kits` |
-| HU12 Reporte anónimo de menor | LIMP-17 | `POST /api/alertas` |
-| HU13 Derivación a DEMUNA; alertas sin atender 48 h → vencidas | LIMP-18 | `POST /api/alertas/{id}/derivar` |
-| HU14 Botón de emergencia (mantener 3 s, cancelar en 10 s) | LIMP-19 | `POST /api/mi/emergencia` |
+| HU12 Reporte anónimo de menor, por cruce o con la ubicación GPS del celular | LIMP-17 | `POST /api/alertas`, `GET /api/cruces` |
+| HU13 Aviso al equipo por cada alerta; derivación a DEMUNA; a las 48 h sin atender → vencida y aviso al administrador | LIMP-18 | `POST /api/alertas/{id}/derivar`, `GET /api/avisos` |
+| HU14 Botón de emergencia (mantener 3 s, cancelar en 10 s) con ubicación GPS | LIMP-19 | `POST /api/mi/emergencia` |
 | HU15 Panel por cruce en mapa y tabla, con filtro por distrito y rango de fechas | LIMP-20 | `GET /api/panel?distrito=&desde=&hasta=` |
 | HU16 Usuarios, roles, desactivación y auditoría | LIMP-21 | `POST/GET /api/usuarios`, `PATCH /api/usuarios/{id}`, `GET /api/auditoria` |
+
+**Avisos y SMS:** los avisos (registro aprobado u observado, propina recibida, alerta nueva o vencida) se
+muestran dentro de la app con un contador. El envío por SMS del OTP y de los datos de capacitación se simula
+porque el piloto no tiene un proveedor de SMS contratado.
 
 **Sobre el OTP:** el piloto no tiene un proveedor de SMS contratado, así que con `OTP_DEMO=true` (valor por
 defecto) el código se muestra en pantalla. Con un proveedor real se define `OTP_DEMO=false` y el código
@@ -70,7 +74,7 @@ Pruebas: `pytest --cov=app`
 | Etapa | Herramienta | Qué hace |
 |---|---|---|
 | Build | pip + ruff | Instala dependencias fijadas y valida el código (incluye reglas de seguridad `S`) |
-| Test | pytest + pytest-cov | 52 pruebas unitarias y de integración trazadas a las historias; cobertura mínima 80 % |
+| Test | pytest + pytest-cov | 58 pruebas unitarias y de integración trazadas a las historias; cobertura mínima 80 % |
 | SAST | Bandit | Analiza el código Python en busca de fallas de seguridad |
 | Dependencias | pip-audit | Busca CVE conocidas en las librerías |
 | Secretos | Gitleaks | Detecta claves o tokens filtrados en todo el historial |
