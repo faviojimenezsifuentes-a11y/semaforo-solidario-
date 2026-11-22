@@ -25,7 +25,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import schemas
-from app.catalogo import cargar_catalogo, ubicar_cruce
+from app.catalogo import NOMBRES_CRUCES, cargar_catalogo, ubicar_cruce
 from app.config import Settings
 from app.models import (
     AccesoTrabajador,
@@ -38,6 +38,7 @@ from app.models import (
     EntregaKit,
     HistorialCruce,
     Inscripcion,
+    Notificacion,
     Postulacion,
     Programa,
     Propina,
@@ -173,7 +174,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if datos.get("rol") != "trabajador" or not sub.startswith(PREFIJO_TRABAJADOR):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "No tiene permisos para esta acción")
         trabajador = db.get(Trabajador, int(sub.removeprefix(PREFIJO_TRABAJADOR)))
-        if trabajador is None or trabajador.estado == "rechazado":
+        if trabajador is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Cuenta no disponible")
         return trabajador
 
@@ -189,12 +190,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def auditar(db: Session, actor: str, accion: str, detalle: str) -> None:
         db.add(Auditoria(actor=actor, accion=accion, detalle=detalle))
 
+    def avisar_trabajador(db: Session, trabajador_id: int, tipo: str, mensaje: str) -> None:
+        db.add(Notificacion(trabajador_id=trabajador_id, tipo=tipo, mensaje=mensaje[:300]))
+
+    def avisar_rol(db: Session, rol: str, tipo: str, mensaje: str) -> None:
+        """rol 'equipo' = promotores y administradores; 'admin' = solo administradores (supervisión)."""
+        db.add(Notificacion(rol=rol, tipo=tipo, mensaje=mensaje[:300]))
+
+    def avisar_alerta(db: Session, alerta: Alerta) -> None:
+        """HU13 escenario 1: cada alerta nueva llega como aviso al equipo social."""
+        que = "Emergencia" if alerta.tipo == "emergencia" else "Menor trabajando"
+        avisar_rol(db, "equipo", "alerta_nueva", f"{que} en {alerta.cruce} ({alerta.codigo_seguimiento})")
+
     def vencer_alertas(db: Session) -> None:
-        """HU13 escenario 3: alertas nuevas sin atender por más de 48 h pasan a 'vencida'."""
+        """HU13 escenario 3: alertas nuevas sin atender por más de 48 h pasan a 'vencida' y se avisa al supervisor."""
         limite = datetime.now(timezone.utc) - timedelta(hours=HORAS_ALERTA)
         for alerta in db.scalars(select(Alerta).where(Alerta.estado == "nueva")):
             if utc(alerta.creado_en) < limite:
                 alerta.estado = "vencida"
+                avisar_rol(db, "admin", "alerta_vencida",
+                           f"Alerta {alerta.codigo_seguimiento} en {alerta.cruce} vencida: más de 48 h sin atender")
         db.commit()
 
     def trabajador_por_token(db: Session, token: str) -> Trabajador:
@@ -218,8 +233,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """HU01 – Registrarse con documento de identidad."""
         if edad(datos.fecha_nacimiento) < 18:
             # Escenario 3: no se crea la cuenta y se alerta al promotor social.
-            db.add(Alerta(tipo="menor", cruce=datos.cruce, codigo_seguimiento=nuevo_codigo(),
-                          descripcion="Intento de registro de un menor de edad"))
+            alerta = Alerta(tipo="menor", cruce=datos.cruce, codigo_seguimiento=nuevo_codigo(),
+                            descripcion="Intento de registro de un menor de edad")
+            db.add(alerta)
+            avisar_alerta(db, alerta)
             db.commit()
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT,
                                 "No se puede registrar a menores de edad. Un promotor social se comunicará.")
@@ -256,6 +273,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Debe indicar el motivo del rechazo")
         trabajador.estado = "validado" if datos.aprobar else "rechazado"
         trabajador.motivo_rechazo = None if datos.aprobar else datos.motivo
+        if datos.aprobar:
+            avisar_trabajador(db, trabajador.id, "registro_aprobado",
+                              "Tu registro fue aprobado. Ya puedes descargar tu QR y recibir propinas.")
+        else:
+            avisar_trabajador(db, trabajador.id, "registro_observado",
+                              f"Tu registro fue observado: {datos.motivo}. Corrige tus datos desde tu perfil.")
         db.commit()
         return {"id": trabajador.id, "estado": trabajador.estado}
 
@@ -287,6 +310,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         propina = Propina(trabajador_id=trabajador.id, monto_centimos=round(datos.monto * 100),
                           billetera=datos.billetera)
         db.add(propina)
+        avisar_trabajador(db, trabajador.id, "propina",
+                          f"Recibiste S/ {datos.monto:.2f} por {'Yape' if datos.billetera == 'yape' else 'Plin'}.")
         db.commit()
         return schemas.PropinaOut(id=propina.id, monto=propina.monto_centimos / 100, billetera=propina.billetera,
                                   creado_en=propina.creado_en, mensaje=f"¡Gracias! Se envió S/ {datos.monto:.2f}")
@@ -327,8 +352,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def reportar(datos: schemas.AlertaIn, db: Db):
         """HU12 – Reporte anónimo (no se guardan datos del conductor)."""
         alerta = Alerta(tipo=datos.tipo, cruce=datos.cruce, descripcion=datos.descripcion,
-                        codigo_seguimiento=nuevo_codigo())
+                        codigo_seguimiento=nuevo_codigo(), lat=datos.lat, lng=datos.lng)
         db.add(alerta)
+        avisar_alerta(db, alerta)
         db.commit()
         return schemas.AlertaCreada(codigo_seguimiento=alerta.codigo_seguimiento,
                                     mensaje="Reporte recibido. Un promotor social lo atenderá.")
@@ -446,7 +472,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ---------------- E1: acceso del trabajador con OTP (HU02) ----------------
     def trabajador_por_celular(db: Session, celular: str) -> Trabajador | None:
-        return db.scalar(select(Trabajador).where(Trabajador.celular == celular, Trabajador.estado != "rechazado")
+        # Incluye registros rechazados: el trabajador debe poder ver el motivo y corregir (HU03)
+        return db.scalar(select(Trabajador).where(Trabajador.celular == celular)
                          .order_by(Trabajador.creado_en.desc()))
 
     def acceso_de(db: Session, trabajador: Trabajador) -> AccesoTrabajador:
@@ -703,8 +730,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         contacto = db.scalar(select(ContactoEmergencia).where(ContactoEmergencia.trabajador_id == trabajador.id))
         alerta = Alerta(tipo="emergencia", cruce=trabajador.cruce, codigo_seguimiento=nuevo_codigo(),
                         descripcion=f"{trabajador.nombres} (cel. {trabajador.celular}) pidió ayuda. {datos.descripcion}"
-                        .strip())
+                        .strip(), lat=datos.lat, lng=datos.lng)
         db.add(alerta)
+        avisar_alerta(db, alerta)
         db.commit()
         avisados = ["Promotor social de turno"] + ([f"{contacto.nombre} (SMS)"] if contacto else [])
         return schemas.EmergenciaOut(codigo_seguimiento=alerta.codigo_seguimiento, avisados=avisados,
@@ -735,6 +763,62 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/auditoria", response_model=list[schemas.AuditoriaOut], tags=["E5 Panel y seguridad"])
     def auditoria(db: Db, _: Admin):
         return list(db.scalars(select(Auditoria).order_by(Auditoria.creado_en.desc()).limit(100)))
+
+    # ---------------- Avisos dentro de la app (HU03, HU06, HU13) ----------------
+    def leer_avisos(db: Session, consulta) -> schemas.Avisos:
+        avisos = list(db.scalars(consulta.order_by(Notificacion.creado_en.desc(), Notificacion.id.desc()).limit(50)))
+        return schemas.Avisos(sin_leer=sum(not a.leida for a in avisos), avisos=avisos)
+
+    def marcar_leidos(db: Session, consulta) -> schemas.Mensaje:
+        for aviso in db.scalars(consulta.where(Notificacion.leida.is_(False))):
+            aviso.leida = True
+        db.commit()
+        return schemas.Mensaje(mensaje="Avisos marcados como leídos")
+
+    def avisos_de_equipo(usuario: Usuario):
+        roles = ["equipo", "admin"] if usuario.rol == "admin" else ["equipo"]
+        return select(Notificacion).where(Notificacion.rol.in_(roles))
+
+    @app.get("/api/mi/avisos", response_model=schemas.Avisos, tags=["Avisos"])
+    def mis_avisos(trabajador: Yo, db: Db):
+        return leer_avisos(db, select(Notificacion).where(Notificacion.trabajador_id == trabajador.id))
+
+    @app.post("/api/mi/avisos/leidos", response_model=schemas.Mensaje, tags=["Avisos"])
+    def leer_mis_avisos(trabajador: Yo, db: Db):
+        return marcar_leidos(db, select(Notificacion).where(Notificacion.trabajador_id == trabajador.id))
+
+    @app.get("/api/avisos", response_model=schemas.Avisos, tags=["Avisos"])
+    def avisos_equipo(db: Db, usuario: Staff):
+        vencer_alertas(db)
+        return leer_avisos(db, avisos_de_equipo(usuario))
+
+    @app.post("/api/avisos/leidos", response_model=schemas.Mensaje, tags=["Avisos"])
+    def leer_avisos_equipo(db: Db, usuario: Staff):
+        return marcar_leidos(db, avisos_de_equipo(usuario))
+
+    # ---------------- HU03: corregir un registro observado ----------------
+    @app.put("/api/mi/registro", response_model=schemas.Mensaje, tags=["E1 Registro"])
+    def corregir_registro(datos: schemas.CorreccionRegistro, trabajador: Yo, db: Db):
+        """El trabajador rechazado corrige sus datos y el registro vuelve a revisión."""
+        if trabajador.estado != "rechazado":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Solo se corrigen registros observados")
+        otro = db.scalar(select(Trabajador).where(Trabajador.numero_documento == datos.numero_documento,
+                                                  Trabajador.id != trabajador.id))
+        if otro:
+            raise HTTPException(status.HTTP_409_CONFLICT, "El documento ya está registrado")
+        trabajador.tipo_documento = datos.tipo_documento
+        trabajador.numero_documento = datos.numero_documento
+        trabajador.nombres = datos.nombres
+        trabajador.estado, trabajador.motivo_rechazo = "pendiente", None
+        avisar_rol(db, "equipo", "registro_corregido", f"{datos.nombres} corrigió su registro y espera validación")
+        db.commit()
+        return schemas.Mensaje(mensaje="Enviamos tus datos corregidos. Un promotor los revisará.", estado="pendiente")
+
+    # ---------------- HU12/HU14: cruces conocidos para ubicar por GPS ----------------
+    @app.get("/api/cruces", response_model=list[schemas.CruceCatalogo], tags=["general"])
+    def cruces_conocidos():
+        return [schemas.CruceCatalogo(cruce=n, distrito=ubicar_cruce(n)[0], lat=ubicar_cruce(n)[1],
+                                      lng=ubicar_cruce(n)[2]) for n in NOMBRES_CRUCES]
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

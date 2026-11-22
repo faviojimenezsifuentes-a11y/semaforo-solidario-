@@ -124,6 +124,24 @@ async function cargarCifras() {
   } catch { $("#cifras").textContent = ""; }
 }
 
+/* ---------- Avisos dentro de la app (HU03, HU06, HU13) ---------- */
+function mostrarContador(contador, n) {
+  contador.hidden = !n;
+  contador.textContent = n ? String(n) : "";
+  contador.setAttribute("aria-label", `${n} sin leer`);
+}
+async function contarAvisos(ruta, token, contador) {
+  try { mostrarContador(contador, (await api(ruta, { token })).sin_leer); } catch { /* sin avisos */ }
+}
+async function pintarAvisos(ruta, token, lista, contador) {
+  const r = await api(ruta, { token });
+  lista.replaceChildren(...(r.avisos.length ? r.avisos.map((a) => el("li", { class: a.leida ? "" : "nuevo" },
+    el("p", {}, a.mensaje), el("time", { datetime: a.creado_en }, fecha(a.creado_en))))
+    : [el("li", { class: "vacio" }, "No tienes avisos por ahora.")]));
+  if (r.sin_leer) await api(ruta + "/leidos", { metodo: "POST", token });
+  mostrarContador(contador, 0);
+}
+
 /* =====================================================================
    TRABAJADOR — HU01 registro, HU02 OTP, HU04 cruce, HU05 QR, HU07 propinas,
    HU09 programas, HU10 cursos y empleo, HU14 emergencia
@@ -215,7 +233,17 @@ async function iniciarTrabajador() {
     rechazado: "Tu registro fue observado: " + (perfil.motivo_rechazo || ""),
   }[perfil.estado];
   const validado = perfil.estado === "validado";
-  $$("#t-app .secciones button").forEach((b) => { b.disabled = !validado && b.dataset.sec !== "sec-qr"; });
+  $$("#t-app .secciones button").forEach((b) => {
+    b.disabled = !validado && !["sec-qr", "sec-avisos"].includes(b.dataset.sec);
+  });
+  const corregir = $("#form-corregir");
+  corregir.hidden = perfil.estado !== "rechazado";
+  if (perfil.estado === "rechazado") {
+    $("#t-motivo").textContent = `Motivo de la observación: ${perfil.motivo_rechazo}`;
+    corregir.tipo_documento.value = perfil.tipo_documento;
+    corregir.nombres.value = perfil.nombres;
+  }
+  contarAvisos("/api/mi/avisos", tTok(), $("#t-contador"));
   $("#sos").hidden = false;
   pintarQr();
   cargarSeccionTrabajador($("#t-app .secciones [aria-current]").dataset.sec);
@@ -231,6 +259,7 @@ async function cargarSeccionTrabajador(sec) {
     if (sec === "sec-programas") await pintarProgramas();
     if (sec === "sec-cursos") await pintarCursos();
     if (sec === "sec-cruce") pintarCruce();
+    if (sec === "sec-avisos") await pintarAvisos("/api/mi/avisos", tTok(), $("#t-avisos"), $("#t-contador"));
   } catch (err) { avisar($("#t-msj"), err.message, false); }
 }
 
@@ -341,6 +370,17 @@ function pintarCruce() {
   c.celular.value = perfil.contacto_emergencia?.celular || "";
 }
 
+$("#form-corregir").addEventListener("submit", (e) => {
+  e.preventDefault();
+  conEnvio(e.target, async () => {
+    try {
+      const r = await api("/api/mi/registro", { metodo: "PUT", datos: datosDe(e.target), token: tTok() });
+      avisar($("#t-msj"), r.mensaje);
+      iniciarTrabajador();
+    } catch (err) { avisar($("#t-msj"), err.message, false); }
+  });
+});
+
 $("#form-cruce").addEventListener("submit", (e) => {
   e.preventDefault();
   conEnvio(e.target, async () => {
@@ -384,8 +424,11 @@ $("#form-contacto").addEventListener("submit", (e) => {
   boton.addEventListener("keyup", (ev) => { if (ev.key === " " || ev.key === "Enter") soltar(); });
   boton.addEventListener("contextmenu", (ev) => ev.preventDefault());
 
+  let ubicacion = null;
   function iniciarCuenta() {
     let s = 10;
+    ubicacion = null;
+    miUbicacion(9000).then((u) => { ubicacion = u; });
     $("#sos-segundos").textContent = s;
     dialogo.showModal();
     cuenta = setInterval(async () => {
@@ -395,8 +438,9 @@ $("#form-contacto").addEventListener("submit", (e) => {
       clearInterval(cuenta);
       dialogo.close();
       try {
-        const r = await api("/api/mi/emergencia", { metodo: "POST", datos: {}, token: tTok() });
-        avisar($("#t-msj"), `${r.mensaje} Avisamos a: ${r.avisados.join(" y ")}. Código ${r.codigo_seguimiento}.`);
+        const r = await api("/api/mi/emergencia", { metodo: "POST", datos: ubicacion || {}, token: tTok() });
+        avisar($("#t-msj"), `${r.mensaje} Avisamos a: ${r.avisados.join(" y ")}. Código ${r.codigo_seguimiento}.`
+          + (ubicacion ? " Enviamos tu ubicación GPS." : " Enviamos el cruce donde trabajas."));
       } catch (err) { avisar($("#t-msj"), err.message, false); }
     }, 1000);
   }
@@ -407,6 +451,22 @@ $("#form-contacto").addEventListener("submit", (e) => {
   });
   dialogo.addEventListener("cancel", () => { clearInterval(cuenta); avisar($("#t-msj"), "Alerta cancelada. No se envió nada."); });
 })();
+
+/* ---------- Ubicación GPS (HU12, HU14) ---------- */
+function miUbicacion(espera = 8000) {
+  return new Promise((resolver) => {
+    if (!navigator.geolocation) return resolver(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolver({ lat: Number(p.coords.latitude.toFixed(5)), lng: Number(p.coords.longitude.toFixed(5)) }),
+      () => resolver(null), { enableHighAccuracy: true, timeout: espera, maximumAge: 60000 });
+  });
+}
+function distanciaKm(a, b) {
+  const rad = (g) => g * Math.PI / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
 
 /* =====================================================================
    CONDUCTOR — HU06 propina, HU08 calificación, HU12 reporte de menor
@@ -479,13 +539,40 @@ $$(".estrellas button").forEach((b) => {
 $(".estrellas").addEventListener("mouseleave", () => $$(".estrellas button").forEach((o) => o.classList.remove("encendida")));
 $("#c-omitir").addEventListener("click", () => terminarPropina("Propina registrada sin calificación."));
 
+$("#c-ubicacion").addEventListener("click", async (ev) => {
+  const msj = $("#c-ubicacion-msj");
+  const f = $("#form-alerta");
+  ev.target.disabled = true;
+  msj.textContent = "Buscando tu ubicación…";
+  const yo = await miUbicacion();
+  ev.target.disabled = false;
+  if (!yo) { msj.textContent = "No pudimos obtener tu ubicación. Escribe el cruce para enviar el reporte."; return; }
+  f.lat.value = yo.lat;
+  f.lng.value = yo.lng;
+  try {
+    const cercano = (await api("/api/cruces"))
+      .map((c) => ({ ...c, km: distanciaKm(yo, c) })).sort((a, b) => a.km - b.km).at(0);
+    if (cercano && cercano.km <= 1) {
+      f.cruce.value = cercano.cruce;
+      msj.textContent = `Ubicación tomada: estás a ${Math.round(cercano.km * 1000)} m de ${cercano.cruce}.`;
+    } else {
+      if (!f.cruce.value) f.cruce.value = `Cerca de ${yo.lat}, ${yo.lng}`;
+      msj.textContent = "Ubicación tomada. No estás junto a un cruce del piloto; revisa o escribe el nombre del cruce.";
+    }
+  } catch { msj.textContent = "Ubicación tomada. Escribe el nombre del cruce."; }
+});
+
 $("#form-alerta").addEventListener("submit", (e) => {
   e.preventDefault();
   conEnvio(e.target, async () => {
     try {
-      const r = await api("/api/alertas", { metodo: "POST", datos: { tipo: "menor", ...datosDe(e.target) } });
+      const d = datosDe(e.target);
+      const datos = { tipo: "menor", cruce: d.cruce, descripcion: d.descripcion };
+      if (d.lat && d.lng) Object.assign(datos, { lat: Number(d.lat), lng: Number(d.lng) });
+      const r = await api("/api/alertas", { metodo: "POST", datos });
       avisar($("#c-alerta-msj"), `${r.mensaje} Tu código de seguimiento es ${r.codigo_seguimiento}.`);
       e.target.reset();
+      $("#c-ubicacion-msj").textContent = "";
     } catch (err) { avisar($("#c-alerta-msj"), err.message, false); }
   });
 });
@@ -530,6 +617,8 @@ async function refrescarEquipo() {
     await pintarPanel();
     const sec = $("#e-app .secciones [aria-current]").dataset.sec;
     if (sec === "e-sec-alertas") await pintarAlertas();
+    if (sec === "e-sec-avisos") await pintarAvisos("/api/avisos", eTok(), $("#e-avisos"), $("#e-contador"));
+    else await contarAvisos("/api/avisos", eTok(), $("#e-contador"));
     if (sec === "e-sec-validar") await pintarPendientes();
     if (sec === "e-sec-solicitudes") await pintarSolicitudes();
     if (sec === "e-sec-kits") await pintarKits();
@@ -634,6 +723,9 @@ async function pintarAlertas() {
     a.descripcion ? el("p", {}, a.descripcion) : null,
     el("p", { class: "nota" }, `Código ${a.codigo_seguimiento}, recibida el ${fecha(a.creado_en)}`
       + (a.derivada_por ? `. Derivada por ${a.derivada_por}: ${a.observaciones}` : "")),
+    a.lat !== null && a.lng !== null ? el("p", { class: "nota" }, `Ubicación GPS: ${a.lat}, ${a.lng} `,
+      el("a", { href: `https://www.openstreetmap.org/?mlat=${a.lat}&mlon=${a.lng}#map=18/${a.lat}/${a.lng}`,
+        target: "_blank", rel: "noopener noreferrer" }, "ver en el mapa")) : null,
     a.estado !== "derivada" ? el("div", { class: "acciones" }, el("button", { class: "primario", type: "button",
       on: { click: async () => {
         const obs = await pedirTexto("Derivar a la DEMUNA", "Observaciones para la DEMUNA", "Derivar alerta");

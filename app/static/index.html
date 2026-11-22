@@ -137,9 +137,26 @@
           <button data-sec="sec-programas">Programas</button>
           <button data-sec="sec-cursos">Cursos y empleo</button>
           <button data-sec="sec-cruce">Mi cruce</button>
+          <button data-sec="sec-avisos">Avisos <span class="contador" id="t-contador" hidden></span></button>
         </nav>
 
         <div id="sec-qr" class="seccion">
+          <form id="form-corregir" class="formulario corregir" hidden>
+            <h2>Corrige tus datos</h2>
+            <p class="aviso" id="t-motivo"></p>
+            <div class="fila">
+              <label>Documento
+                <select name="tipo_documento" required>
+                  <option value="DNI">DNI</option>
+                  <option value="CE">Carné de extranjería</option>
+                  <option value="PTP">PTP</option>
+                </select>
+              </label>
+              <label>Número <input name="numero_documento" required pattern="[A-Za-z0-9]{8,12}" autocomplete="off"></label>
+            </div>
+            <label>Nombres y apellidos <input name="nombres" required minlength="3"></label>
+            <button class="primario" type="submit">Enviar corrección</button>
+          </form>
           <div class="qr-tarjeta">
             <div class="qr-marco" id="qr-marco"></div>
             <div>
@@ -167,6 +184,11 @@
           <ul class="tarjetas" id="t-cursos"></ul>
           <h2>Ofertas de empleo formal</h2>
           <ul class="tarjetas" id="t-empleos"></ul>
+        </div>
+
+        <div id="sec-avisos" class="seccion" hidden>
+          <h2>Mis avisos</h2>
+          <ul class="avisos" id="t-avisos"></ul>
         </div>
 
         <div id="sec-cruce" class="seccion" hidden>
@@ -254,6 +276,9 @@
           <p>Avisa al equipo social. Tu reporte es anónimo: no guardamos tus datos.</p>
           <form id="form-alerta" class="formulario">
             <label>Cruce <input name="cruce" required minlength="3" list="cruces-conocidos" placeholder="Av. Brasil / Av. Javier Prado"></label>
+            <input type="hidden" name="lat"><input type="hidden" name="lng">
+            <button class="secundario" type="button" id="c-ubicacion">Usar mi ubicación</button>
+            <p class="nota" id="c-ubicacion-msj" role="status"></p>
             <label><span>Qué viste <span class="opcional">(opcional)</span></span>
               <textarea name="descripcion" maxlength="500" rows="3" placeholder="Edad aproximada, ropa, si está acompañado…"></textarea>
             </label>
@@ -315,6 +340,7 @@
 
         <nav class="secciones" aria-label="Tareas del equipo">
           <button data-sec="e-sec-alertas" aria-current="true">Alertas</button>
+          <button data-sec="e-sec-avisos">Avisos <span class="contador" id="e-contador" hidden></span></button>
           <button data-sec="e-sec-validar">Validar registros</button>
           <button data-sec="e-sec-solicitudes">Solicitudes</button>
           <button data-sec="e-sec-kits">Kits de seguridad</button>
@@ -322,6 +348,7 @@
         </nav>
 
         <div id="e-sec-alertas" class="seccion"><ul class="tarjetas" id="e-alertas"></ul></div>
+        <div id="e-sec-avisos" class="seccion" hidden><ul class="avisos" id="e-avisos"></ul></div>
         <div id="e-sec-validar" class="seccion" hidden><ul class="tarjetas" id="e-pendientes"></ul></div>
         <div id="e-sec-solicitudes" class="seccion" hidden><ul class="tarjetas" id="e-solicitudes"></ul></div>
         <div id="e-sec-kits" class="seccion" hidden>
