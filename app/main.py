@@ -25,7 +25,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import schemas
-from app.catalogo import cargar_catalogo
+from app.catalogo import cargar_catalogo, ubicar_cruce
 from app.config import Settings
 from app.models import (
     AccesoTrabajador,
@@ -376,37 +376,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"usuario": datos.usuario, "rol": datos.rol}
 
     @app.get("/api/panel", response_model=schemas.Panel, tags=["E5 Panel y seguridad"])
-    def panel(db: Db, _: Staff):
-        """HU15 – Indicadores por cruce para priorizar intervenciones."""
+    def panel(db: Db, _: Staff, distrito: str | None = None, desde: date | None = None,
+              hasta: date | None = None):
+        """HU15 – Indicadores por cruce, con filtro por distrito y rango de fechas, y coordenadas para el mapa."""
+        if desde and hasta and desde > hasta:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "La fecha inicial es posterior a la final")
+        vencer_alertas(db)
+
+        def en_rango(momento: datetime) -> bool:
+            dia = utc(momento).astimezone(timezone(timedelta(hours=-5))).date()  # hora de Lima
+            return (desde is None or dia >= desde) and (hasta is None or dia <= hasta)
+
+        def en_distrito(cruce: str) -> bool:
+            return distrito is None or ubicar_cruce(cruce)[0] == distrito
+
         cruces: dict[str, schemas.CruceResumen] = {}
 
         def fila(nombre: str) -> schemas.CruceResumen:
-            return cruces.setdefault(nombre, schemas.CruceResumen(
-                cruce=nombre, trabajadores=0, validados=0, alertas_abiertas=0, kits_entregados=0, propinas_total=0))
+            if nombre not in cruces:
+                dist, lat, lng = ubicar_cruce(nombre)
+                cruces[nombre] = schemas.CruceResumen(
+                    cruce=nombre, distrito=dist, lat=lat, lng=lng, trabajadores=0, validados=0,
+                    alertas_abiertas=0, kits_entregados=0, propinas_total=0)
+            return cruces[nombre]
 
-        vencer_alertas(db)
-
-        for t in db.scalars(select(Trabajador)):
+        todos = list(db.scalars(select(Trabajador)))
+        trabajadores = [t for t in todos if en_distrito(t.cruce) and en_rango(t.creado_en)]
+        for t in trabajadores:
             f = fila(t.cruce)
             f.trabajadores += 1
             f.validados += t.estado == "validado"
-        abiertas = list(db.scalars(select(Alerta).where(Alerta.estado != "derivada")))
+        abiertas = [a for a in db.scalars(select(Alerta).where(Alerta.estado != "derivada"))
+                    if en_distrito(a.cruce) and en_rango(a.creado_en)]
         for a in abiertas:
             fila(a.cruce).alertas_abiertas += 1
-        for cruce, total in db.execute(
-            select(Trabajador.cruce, func.count(EntregaKit.id)).join(EntregaKit).group_by(Trabajador.cruce)
-        ):
-            fila(cruce).kits_entregados = total
-        for cruce, total in db.execute(
-            select(Trabajador.cruce, func.sum(Propina.monto_centimos)).join(Propina).group_by(Trabajador.cruce)
-        ):
-            fila(cruce).propinas_total = (total or 0) / 100
+        for kit, cruce in db.execute(select(EntregaKit, Trabajador.cruce).join(Trabajador)):
+            if en_distrito(cruce) and en_rango(kit.entregado_en):
+                fila(cruce).kits_entregados += 1
+        for propina, cruce in db.execute(select(Propina, Trabajador.cruce).join(Trabajador)):
+            if en_distrito(cruce) and en_rango(propina.creado_en):
+                fila(cruce).propinas_total = round(fila(cruce).propinas_total + propina.monto_centimos / 100, 2)
 
         filas = sorted(cruces.values(), key=lambda c: (-c.alertas_abiertas, -c.trabajadores))
         return schemas.Panel(
             total_trabajadores=sum(c.trabajadores for c in filas),
-            pendientes_validacion=db.scalar(
-                select(func.count()).select_from(Trabajador).where(Trabajador.estado == "pendiente")) or 0,
+            pendientes_validacion=sum(t.estado == "pendiente" for t in trabajadores),
             alertas_abiertas=sum(c.alertas_abiertas for c in filas),
             emergencias_abiertas=sum(a.tipo == "emergencia" for a in abiertas),
             kits_entregados=sum(c.kits_entregados for c in filas),
@@ -415,6 +429,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             or 0,
             propinas_total=round(sum(c.propinas_total for c in filas), 2),
             por_cruce=filas,
+            distritos=sorted({ubicar_cruce(t.cruce)[0] for t in todos}
+                             | {ubicar_cruce(a.cruce)[0] for a in db.scalars(select(Alerta))}),
         )
 
     # ---------------- Público ----------------

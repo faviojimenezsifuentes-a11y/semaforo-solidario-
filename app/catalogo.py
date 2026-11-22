@@ -64,6 +64,23 @@ EMPLEOS = [
 ]
 
 
+# Cruces del piloto con su distrito y coordenadas aproximadas (HU15: filtro por distrito y mapa).
+CRUCES = {
+    "av. javier prado / av. arequipa": ("San Isidro", -12.0907, -77.0347),
+    "av. brasil / av. javier prado": ("Magdalena del Mar", -12.0918, -77.0640),
+    "av. benavides / av. república de panamá": ("Miraflores", -12.1268, -77.0208),
+    "av. angamos / av. paseo de la república": ("Surquillo", -12.1131, -77.0272),
+    "av. la marina / av. universitaria": ("San Miguel", -12.0789, -77.0857),
+}
+SIN_DISTRITO = "Sin distrito asignado"
+
+
+def ubicar_cruce(cruce: str) -> tuple[str, float | None, float | None]:
+    """Distrito y coordenadas de un cruce conocido; los demás quedan sin ubicar en el mapa."""
+    distrito, lat, lng = CRUCES.get(" ".join(cruce.lower().split()), (SIN_DISTRITO, None, None))
+    return distrito, lat, lng
+
+
 def cargar_catalogo(db: Session) -> None:
     if db.scalar(select(Programa).limit(1)) is None:
         db.add_all(Programa(**p) for p in PROGRAMAS)

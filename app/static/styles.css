@@ -219,7 +219,7 @@ dialog .acciones { justify-content: end; margin-top: 1rem; }
 /* ---------- Conductor ---------- */
 .destinatario { background: var(--blanco); padding: 1rem 1.25rem; border-left: 6px solid var(--verde); font-size: 1.15rem; }
 .destinatario b { font: 800 1.6rem/1.1 var(--display); display: block; }
-.montos { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+.montos { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; }
 .montos legend { grid-column: 1 / -1; }
 .montos label { display: block; }
 .montos input { position: absolute; opacity: 0; width: 1px; height: 1px; }
@@ -236,6 +236,16 @@ dialog .acciones { justify-content: end; margin-top: 1rem; }
 .reporte h2 { margin-top: 0; }
 
 /* ---------- Equipo ---------- */
+.filtros { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin: 0 0 .5rem; }
+.filtros label { min-width: 150px; }
+.mapa { margin: 1.5rem 0 0; background: var(--blanco); padding: 1rem; }
+.mapa svg { width: 100%; height: auto; display: block; }
+.mapa figcaption { color: var(--texto-suave); font-size: .9rem; margin-top: .5rem; }
+.mapa .calle { stroke: var(--linea); stroke-width: 1; }
+.mapa .punto { fill: var(--asfalto); fill-opacity: .8; stroke: var(--blanco); stroke-width: 2; }
+.mapa .punto.alerta { fill: var(--rojo); }
+.mapa text { font: 500 12px var(--texto); fill: var(--asfalto); }
+.mapa text.distrito { fill: var(--texto-suave); font-size: 11px; }
 .tabla-cont { overflow-x: auto; margin-top: 1.5rem; }
 table { width: 100%; border-collapse: collapse; background: var(--blanco); font-variant-numeric: tabular-nums; }
 caption { text-align: left; font-weight: 600; padding: 0 0 .5rem; }
@@ -255,6 +265,7 @@ td.num, th.num { text-align: right; }
   .entrada:last-child { border-bottom: 0; }
   .qr-tarjeta { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .fila { grid-template-columns: 1fr; }
+  .montos { grid-template-columns: repeat(3, 1fr); }
   .roles { width: 100%; }
   .roles a { flex: 1; text-align: center; padding: .45rem .3rem; font-size: .85rem; line-height: 1.2; }
   .bajada { font-size: 1.05rem; }

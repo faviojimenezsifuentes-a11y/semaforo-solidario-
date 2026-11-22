@@ -214,3 +214,41 @@ def test_promotor_no_gestiona_usuarios(client, promotor):
 def test_estadisticas_publicas_sin_datos_personales(client, trabajador_validado):
     e = client.get("/api/estadisticas").json()
     assert e == {"trabajadores_validados": 1, "cruces": 1, "propinas_total": 0.0, "alertas_atendidas": 0}
+
+
+# HU15 (LIMP-20) – filtros por distrito y fechas, y coordenadas para el mapa
+def test_panel_filtra_por_distrito_y_ubica_cruces(client, promotor, trabajador_validado):
+    client.post("/api/trabajadores", json=datos_trabajador(
+        numero_documento="70000001", celular="911111112", cruce="Av. La Marina / Av. Universitaria"))
+    client.post("/api/alertas", json={"cruce": "Av. La Marina / Av. Universitaria"})
+    todo = client.get("/api/panel", headers=promotor).json()
+    assert todo["total_trabajadores"] == 2
+    assert {"San Isidro", "San Miguel"} <= set(todo["distritos"])
+    san_miguel = client.get("/api/panel?distrito=San Miguel", headers=promotor).json()
+    assert san_miguel["total_trabajadores"] == 1 and san_miguel["alertas_abiertas"] == 1
+    fila = san_miguel["por_cruce"][0]
+    assert fila["distrito"] == "San Miguel" and fila["lat"] < 0 and fila["lng"] < 0
+
+
+def test_panel_filtra_por_rango_de_fechas(client, promotor, trabajador_validado):
+    client.post("/api/propinas", json={"qr_token": trabajador_validado["qr_token"], "monto": 3.5,
+                                       "billetera": "plin"})
+    hoy = datetime.now(timezone(timedelta(hours=-5))).date()
+    vigente = client.get(f"/api/panel?desde={hoy}&hasta={hoy}", headers=promotor).json()
+    assert vigente["total_trabajadores"] == 1 and vigente["propinas_total"] == 3.5
+    pasado = client.get("/api/panel?desde=2020-01-01&hasta=2020-01-31", headers=promotor).json()
+    assert pasado["total_trabajadores"] == 0 and pasado["por_cruce"] == []
+    assert client.get("/api/panel?desde=2026-02-01&hasta=2026-01-01", headers=promotor).status_code == 422
+
+
+def test_cruce_fuera_del_catalogo_queda_sin_coordenadas(client, promotor):
+    client.post("/api/trabajadores", json=datos_trabajador(cruce="Av. Tacna / Jr. Ica"))
+    fila = client.get("/api/panel", headers=promotor).json()["por_cruce"][0]
+    assert fila["lat"] is None and fila["distrito"] == "Sin distrito asignado"
+
+
+# HU06 (LIMP-11) – monto libre ("otro")
+def test_propina_con_monto_libre(client, trabajador_validado):
+    r = client.post("/api/propinas", json={"qr_token": trabajador_validado["qr_token"], "monto": 3.5,
+                                           "billetera": "yape"})
+    assert r.status_code == 201 and r.json()["monto"] == 3.5
