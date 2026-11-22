@@ -1,0 +1,21 @@
+# Blueprint de Render: servicio web desde el Dockerfile.
+# El despliegue lo dispara el pipeline (deploy hook) solo cuando pasan pruebas y seguridad.
+services:
+  - type: web
+    name: semaforo-solidario
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: PROMOTOR_USER
+        sync: false
+      - key: PROMOTOR_PASSWORD
+        sync: false
