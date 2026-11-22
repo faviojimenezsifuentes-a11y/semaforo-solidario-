@@ -33,3 +33,22 @@ def test_token_jwt_contiene_rol_y_se_valida_con_la_clave():
     token = crear_token("ana", "promotor", clave, 5)
     datos = leer_token(token, clave)
     assert datos["sub"] == "ana" and datos["rol"] == "promotor"
+
+
+def test_otp_se_guarda_como_hmac():
+    from app.main import hash_otp
+
+    clave = secrets.token_urlsafe(32)
+    assert hash_otp("123456", clave) != "123456"
+    assert hash_otp("123456", clave) == hash_otp("123456", clave)
+    assert hash_otp("123456", clave) != hash_otp("123456", secrets.token_urlsafe(32))
+
+
+def test_programa_aplica_por_documento_y_edad():
+    from app.main import programa_aplica
+    from app.models import Programa
+
+    juvenil = Programa(documentos="DNI,CE,PTP", edad_min=18, edad_max=29)
+    migrante = Programa(documentos="CE,PTP", edad_min=18, edad_max=120)
+    assert programa_aplica(juvenil, "DNI", 25) and not programa_aplica(juvenil, "DNI", 30)
+    assert programa_aplica(migrante, "PTP", 40) and not programa_aplica(migrante, "DNI", 40)

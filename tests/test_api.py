@@ -1,6 +1,6 @@
 """Pruebas de integración de la API. Cada prueba referencia la historia de Jira (LIMP)."""
 
-from tests.conftest import datos_trabajador
+from tests.conftest import datos_trabajador, sesion_trabajador
 
 
 def test_health(client):
@@ -93,7 +93,7 @@ def test_propina_historial_y_calificacion(client, trabajador_validado):
     assert r.status_code == 201
     propina_id = r.json()["id"]
     client.post("/api/propinas", json={"qr_token": token, "monto": 2, "billetera": "plin"})
-    h = client.get(f"/api/trabajadores/token/{token}/propinas").json()
+    h = client.get("/api/mi/propinas", headers=sesion_trabajador(client)).json()
     assert h["total_hoy"] == 7.0 and len(h["propinas"]) == 2
     assert client.post(f"/api/propinas/{propina_id}/calificacion", json={"estrellas": 5}).status_code == 200
     assert client.post(f"/api/propinas/{propina_id}/calificacion", json={"estrellas": 4}).status_code == 409
