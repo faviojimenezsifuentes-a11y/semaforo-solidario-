@@ -114,6 +114,9 @@ class UsuarioIn(BaseModel):
 
 class CruceResumen(BaseModel):
     cruce: str
+    distrito: str = ""
+    lat: float | None = None
+    lng: float | None = None
     trabajadores: int
     validados: int
     alertas_abiertas: int
@@ -130,6 +133,7 @@ class Panel(BaseModel):
     solicitudes_nuevas: int = 0
     propinas_total: float
     por_cruce: list[CruceResumen]
+    distritos: list[str] = []
 
 
 # ---------------- Ampliación ----------------
