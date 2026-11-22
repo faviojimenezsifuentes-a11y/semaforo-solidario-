@@ -51,6 +51,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Ejecutar pytest con cobertura (mínimo 80 %)
         run: |
+          mkdir -p reports
           pytest -v --junitxml=reports/junit.xml \
                  --cov=app --cov-report=term-missing --cov-report=xml:reports/coverage.xml \
                  --cov-fail-under=80 | tee reports/pytest.txt
