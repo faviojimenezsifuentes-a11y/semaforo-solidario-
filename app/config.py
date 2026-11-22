@@ -26,6 +26,11 @@ class Settings:
     token_minutes: int = field(
         default_factory=lambda: int(os.getenv("TOKEN_MINUTES", "60"))
     )
+    # Sin proveedor SMS contratado, el código OTP se muestra en pantalla (modo demostración).
+    # En producción con SMS real se define OTP_DEMO=false.
+    otp_demo: bool = field(
+        default_factory=lambda: os.getenv("OTP_DEMO", "true").lower() == "true"
+    )
     admin_user: str | None = field(default_factory=lambda: os.getenv("ADMIN_USER"))
     admin_password: str | None = field(
         default_factory=lambda: os.getenv("ADMIN_PASSWORD")
