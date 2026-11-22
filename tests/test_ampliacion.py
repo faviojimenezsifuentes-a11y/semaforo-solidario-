@@ -252,3 +252,69 @@ def test_propina_con_monto_libre(client, trabajador_validado):
     r = client.post("/api/propinas", json={"qr_token": trabajador_validado["qr_token"], "monto": 3.5,
                                            "billetera": "yape"})
     assert r.status_code == 201 and r.json()["monto"] == 3.5
+
+
+# Avisos dentro de la app – HU03 (LIMP-8), HU06 (LIMP-11), HU13 (LIMP-18)
+def test_trabajador_recibe_aviso_de_aprobacion_y_de_propina(client, trabajador_validado, yo):
+    client.post("/api/propinas", json={"qr_token": trabajador_validado["qr_token"], "monto": 5, "billetera": "yape"})
+    avisos = client.get("/api/mi/avisos", headers=yo).json()
+    mensajes = [a["mensaje"] for a in avisos["avisos"]]
+    assert avisos["sin_leer"] == 2
+    assert mensajes[0] == "Recibiste S/ 5.00 por Yape." and "aprobado" in mensajes[1]
+    client.post("/api/mi/avisos/leidos", headers=yo)
+    assert client.get("/api/mi/avisos", headers=yo).json()["sin_leer"] == 0
+
+
+def test_trabajador_rechazado_ingresa_ve_el_motivo_y_corrige(client, promotor):
+    t = client.post("/api/trabajadores", json=datos_trabajador()).json()
+    client.post(f"/api/trabajadores/{t['id']}/validacion", json={"aprobar": False, "motivo": "El DNI no coincide"},
+                headers=promotor)
+    cabecera = sesion_trabajador(client)
+    perfil = client.get("/api/mi/perfil", headers=cabecera).json()
+    assert perfil["estado"] == "rechazado" and perfil["motivo_rechazo"] == "El DNI no coincide"
+    assert "El DNI no coincide" in client.get("/api/mi/avisos", headers=cabecera).json()["avisos"][0]["mensaje"]
+    assert client.get("/api/mi/programas", headers=cabecera).status_code == 409  # sin beneficios hasta validar
+    r = client.put("/api/mi/registro", json={"tipo_documento": "DNI", "numero_documento": "45678913",
+                                             "nombres": "Carlos Pérez Ramos"}, headers=cabecera)
+    assert r.status_code == 200 and r.json()["estado"] == "pendiente"
+    pendientes = client.get("/api/trabajadores?estado=pendiente", headers=promotor).json()
+    assert pendientes[0]["documento_enmascarado"] == "*****913"
+    assert any(a["tipo"] == "registro_corregido" for a in client.get("/api/avisos", headers=promotor).json()["avisos"])
+
+
+def test_solo_un_registro_observado_se_puede_corregir(client, yo):
+    r = client.put("/api/mi/registro", json={"tipo_documento": "DNI", "numero_documento": "45678913",
+                                             "nombres": "Otro Nombre"}, headers=yo)
+    assert r.status_code == 409
+
+
+def test_equipo_recibe_aviso_de_cada_alerta_nueva(client, promotor):
+    client.post("/api/alertas", json={"cruce": "Av. Brasil / Av. Javier Prado"})
+    avisos = client.get("/api/avisos", headers=promotor).json()
+    assert avisos["sin_leer"] == 1 and avisos["avisos"][0]["tipo"] == "alerta_nueva"
+
+
+def test_alerta_vencida_avisa_solo_al_administrador(client, promotor, admin, monkeypatch):
+    client.post("/api/alertas", json={"cruce": "Av. Brasil / Av. Javier Prado"})
+    futuro = datetime.now(timezone.utc) + timedelta(hours=49)
+
+    class Reloj(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return futuro
+
+    monkeypatch.setattr("app.main.datetime", Reloj)
+    tipos_admin = [a["tipo"] for a in client.get("/api/avisos", headers=admin).json()["avisos"]]
+    tipos_promotor = [a["tipo"] for a in client.get("/api/avisos", headers=promotor).json()["avisos"]]
+    assert "alerta_vencida" in tipos_admin and "alerta_vencida" not in tipos_promotor
+
+
+# HU12 (LIMP-17) y HU14 (LIMP-19) – ubicación GPS opcional
+def test_reporte_y_emergencia_guardan_la_ubicacion(client, promotor, yo):
+    cruces = client.get("/api/cruces").json()
+    assert len(cruces) == 5 and all(c["lat"] < 0 for c in cruces)
+    client.post("/api/alertas", json={"cruce": cruces[0]["cruce"], "lat": -12.0907, "lng": -77.0347})
+    client.post("/api/mi/emergencia", json={"lat": -12.09, "lng": -77.03}, headers=yo)
+    alertas = client.get("/api/alertas", headers=promotor).json()
+    assert all(a["lat"] is not None for a in alertas)
+    assert client.post("/api/alertas", json={"cruce": "Av. X", "lat": 120}).status_code == 422
