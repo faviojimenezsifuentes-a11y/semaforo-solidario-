@@ -1,0 +1,33 @@
+:root { --verde: #1baf7a; --rojo: #e34948; --azul: #2a78d6; --tinta: #1d1d1b; --suave: #f4f3ef; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--tinta); background: #fff; }
+header { background: var(--tinta); color: #fff; padding: 1.5rem 1rem 0; }
+header h1 { margin: 0; font-size: 1.6rem; }
+header p { margin: .3rem 0 1rem; color: #d8d7d0; }
+nav { display: flex; gap: .25rem; flex-wrap: wrap; }
+.tab { background: transparent; color: #d8d7d0; border: 0; padding: .7rem 1rem; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 1rem; }
+.tab.activo { background: #fff; color: var(--tinta); font-weight: 600; }
+main { max-width: 860px; margin: 0 auto; padding: 1rem; }
+.panel { display: none; } .panel.activo { display: block; }
+h2 { font-size: 1.15rem; margin-top: 1.8rem; }
+form { display: grid; gap: .7rem; max-width: 480px; }
+form.en-linea { grid-template-columns: 1fr 1fr auto; max-width: none; align-items: end; }
+label { display: grid; gap: .25rem; font-size: .9rem; }
+input, select, textarea { font: inherit; padding: .55rem; border: 1px solid #c9c8c1; border-radius: 6px; }
+button { font: inherit; padding: .6rem 1rem; border: 0; border-radius: 6px; background: var(--azul); color: #fff; cursor: pointer; }
+button.alerta { background: var(--rojo); }
+.resultado { margin-top: .8rem; } .ok { color: #08794f; } .error { color: #b3261e; }
+.nota { color: #5b5a55; font-size: .9rem; margin: 0; }
+.oculto { display: none; }
+.estrellas { display: flex; gap: .4rem; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
+.kpi { background: var(--suave); border-radius: 8px; padding: .8rem; }
+.kpi b { display: block; font-size: 1.6rem; }
+table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #e6e5e0; }
+.lista { list-style: none; padding: 0; display: grid; gap: .5rem; }
+.lista li { background: var(--suave); border-radius: 8px; padding: .7rem; display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.lista li div { display: flex; gap: .4rem; }
+.qr img { width: 200px; height: 200px; }
+footer { text-align: center; color: #5b5a55; font-size: .85rem; padding: 2rem 1rem; }
+@media (max-width: 600px) { form.en-linea { grid-template-columns: 1fr; } }
