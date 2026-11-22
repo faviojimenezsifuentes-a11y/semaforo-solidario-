@@ -195,6 +195,20 @@ button:disabled { opacity: .55; cursor: progress; }
 .historial li { padding: .55rem 0; border-bottom: 1px dashed var(--linea); color: var(--asfalto-2); }
 .vacio { color: var(--texto-suave); padding: 1rem 0; }
 
+.contador { display: inline-block; min-width: 1.4em; padding: 0 .35em; margin-left: .25rem; border-radius: 99px;
+  background: var(--rojo); color: var(--blanco); font-size: .8rem; font-weight: 600; text-align: center; }
+.avisos { list-style: none; padding: 0; margin: 0; max-width: 760px; }
+.avisos li { display: grid; grid-template-columns: 14px 1fr; gap: .2rem .75rem; padding: .85rem 0;
+  border-bottom: 1px solid var(--linea); }
+.avisos li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; margin-top: .45rem;
+  background: var(--linea); grid-row: span 2; }
+.avisos li.nuevo::before { background: var(--rojo); }
+.avisos li.nuevo p { font-weight: 600; }
+.avisos p { margin: 0; }
+.avisos time { color: var(--texto-suave); font-size: .9rem; }
+.corregir { background: var(--blanco); padding: 1.25rem; border-top: 8px solid var(--rojo); margin-bottom: 1.5rem; }
+.corregir h2 { margin-top: 0; }
+
 /* Botón de emergencia */
 .sos { position: fixed; right: 1.25rem; bottom: 1.25rem; display: grid; justify-items: center; gap: .3rem; z-index: 5; }
 .sos button {
@@ -273,3 +287,4 @@ td.num, th.num { text-align: right; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+#c-ubicacion { justify-self: start; }
