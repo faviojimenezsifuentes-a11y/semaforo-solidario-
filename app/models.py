@@ -66,6 +66,8 @@ class Alerta(Base):
     derivada_en: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    lat: Mapped[float | None] = mapped_column(nullable=True)  # HU12/HU14: ubicación GPS opcional
+    lng: Mapped[float | None] = mapped_column(nullable=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
 
 
@@ -222,4 +224,21 @@ class Auditoria(Base):
     actor: Mapped[str] = mapped_column(String(60))
     accion: Mapped[str] = mapped_column(String(40))
     detalle: Mapped[str] = mapped_column(String(255))
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+
+
+class Notificacion(Base):
+    """Aviso dentro de la app (HU03, HU06, HU13).
+
+    Va a un trabajador (trabajador_id) o a un rol interno: 'equipo' (promotores y administradores) o 'admin'.
+    """
+
+    __tablename__ = "notificaciones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trabajador_id: Mapped[int | None] = mapped_column(ForeignKey("trabajadores.id"), nullable=True, index=True)
+    rol: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    tipo: Mapped[str] = mapped_column(String(20))
+    mensaje: Mapped[str] = mapped_column(String(300))
+    leida: Mapped[bool] = mapped_column(default=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)

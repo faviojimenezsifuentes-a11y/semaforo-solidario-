@@ -72,6 +72,13 @@ CRUCES = {
     "av. angamos / av. paseo de la república": ("Surquillo", -12.1131, -77.0272),
     "av. la marina / av. universitaria": ("San Miguel", -12.0789, -77.0857),
 }
+NOMBRES_CRUCES = [
+    "Av. Javier Prado / Av. Arequipa",
+    "Av. Brasil / Av. Javier Prado",
+    "Av. Benavides / Av. República de Panamá",
+    "Av. Angamos / Av. Paseo de la República",
+    "Av. La Marina / Av. Universitaria",
+]
 SIN_DISTRITO = "Sin distrito asignado"
 
 

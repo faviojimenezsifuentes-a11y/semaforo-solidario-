@@ -70,6 +70,8 @@ class AlertaIn(BaseModel):
     tipo: Literal["menor", "emergencia"] = "menor"
     cruce: str = Field(min_length=3, max_length=120)
     descripcion: str = Field(default="", max_length=500)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class AlertaCreada(BaseModel):
@@ -88,6 +90,8 @@ class AlertaOut(BaseModel):
     codigo_seguimiento: str
     observaciones: str | None
     derivada_por: str | None
+    lat: float | None = None
+    lng: float | None = None
     creado_en: datetime
 
 
@@ -243,6 +247,8 @@ class Mensaje(BaseModel):
 
 class EmergenciaIn(BaseModel):
     descripcion: str = Field(default="", max_length=300)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class EmergenciaOut(BaseModel):
@@ -292,3 +298,31 @@ class Estadisticas(BaseModel):
     cruces: int
     propinas_total: float
     alertas_atendidas: int
+
+
+class NotificacionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tipo: str
+    mensaje: str
+    leida: bool
+    creado_en: datetime
+
+
+class Avisos(BaseModel):
+    sin_leer: int
+    avisos: list[NotificacionOut]
+
+
+class CorreccionRegistro(BaseModel):
+    tipo_documento: Literal["DNI", "CE", "PTP"]
+    numero_documento: str = Field(pattern=r"^[A-Za-z0-9]{8,12}$")
+    nombres: str = Field(min_length=3, max_length=120)
+
+
+class CruceCatalogo(BaseModel):
+    cruce: str
+    distrito: str
+    lat: float
+    lng: float
