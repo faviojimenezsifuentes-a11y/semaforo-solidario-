@@ -1,5 +1,6 @@
 """Pruebas unitarias de funciones puras."""
 
+import secrets
 from datetime import date
 
 from app.main import edad, enmascarar, nuevo_codigo
@@ -28,6 +29,7 @@ def test_password_se_guarda_con_hash_y_se_verifica():
 
 
 def test_token_jwt_contiene_rol_y_se_valida_con_la_clave():
-    token = crear_token("ana", "promotor", "clave-secreta-de-prueba-123456789", 5)
-    datos = leer_token(token, "clave-secreta-de-prueba-123456789")
+    clave = secrets.token_urlsafe(32)  # clave efímera: nunca escribir claves en el código
+    token = crear_token("ana", "promotor", clave, 5)
+    datos = leer_token(token, clave)
     assert datos["sub"] == "ana" and datos["rol"] == "promotor"
