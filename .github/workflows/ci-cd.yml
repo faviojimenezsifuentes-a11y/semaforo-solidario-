@@ -1,0 +1,170 @@
+name: CI/CD DevSecOps
+
+# Rama test: integración y pruebas. Rama main: producción (despliegue a Render).
+on:
+  push:
+    branches: [main, test]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  # 1) BUILD + LINT: instala dependencias fijadas y valida estilo/errores comunes
+  build:
+    name: Build y lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint (ruff, incluye reglas de seguridad flake8-bandit)
+        run: ruff check .
+      - name: Verificar que la app importa
+        run: python -c "from app.main import create_app; create_app()"
+
+  # 2) TEST: unitarias + integración con cobertura mínima
+  test:
+    name: Pruebas automatizadas
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ejecutar pytest con cobertura (mínimo 80 %)
+        run: |
+          mkdir -p reports
+          pytest -v --junitxml=reports/junit.xml \
+                 --cov=app --cov-report=term-missing --cov-report=xml:reports/coverage.xml \
+                 --cov-fail-under=80 | tee reports/pytest.txt
+      - name: Resumen de pruebas
+        if: always()
+        run: |
+          echo "## Resultado de pruebas" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 25 reports/pytest.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reportes-pruebas
+          path: reports/
+
+  # 3) SEGURIDAD: SAST, dependencias y secretos (en paralelo con las pruebas)
+  sast:
+    name: SAST (Bandit)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install bandit==1.9.4
+      - name: Análisis estático de seguridad del código
+        run: |
+          bandit -c pyproject.toml -r app -f txt -o bandit.txt || (cat bandit.txt; exit 1)
+          cat bandit.txt
+          echo "## Bandit (SAST)" >> "$GITHUB_STEP_SUMMARY"
+          grep -A6 "Total issues" bandit.txt >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reporte-bandit
+          path: bandit.txt
+
+  dependencias:
+    name: Análisis de dependencias (pip-audit)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install pip-audit==2.10.1
+      - name: Buscar vulnerabilidades conocidas (CVE) en dependencias
+        run: |
+          pip-audit -r requirements.txt --strict | tee pip-audit.txt
+          echo "## pip-audit" >> "$GITHUB_STEP_SUMMARY"
+          cat pip-audit.txt >> "$GITHUB_STEP_SUMMARY"
+
+  secretos:
+    name: Escaneo de secretos (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 4) IMAGEN: construir el contenedor y escanearlo (Trivy)
+  imagen:
+    name: Build y escaneo de imagen (Trivy)
+    needs: [test, sast, dependencias, secretos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construir imagen Docker
+        run: docker build -t semaforo-solidario:${{ github.sha }} .
+      - name: Escanear imagen
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: semaforo-solidario:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: Smoke test del contenedor
+        run: |
+          docker run -d -p 8000:8000 -e SECRET_KEY=ci-smoke-test-key --name app semaforo-solidario:${{ github.sha }}
+          for i in $(seq 1 20); do curl -fs http://localhost:8000/health && exit 0; sleep 1; done
+          docker logs app; exit 1
+
+  # 5) DEPLOY: solo desde main, cuando todo lo anterior pasó
+  deploy:
+    name: Deploy a Render (producción)
+    needs: imagen
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: ${{ vars.RENDER_URL }}
+    steps:
+      - name: Disparar despliegue en Render
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then echo "Falta el secreto RENDER_DEPLOY_HOOK"; exit 1; fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          echo "Despliegue solicitado a Render"
+      - name: Verificar que la aplicación responde
+        env:
+          RENDER_URL: ${{ vars.RENDER_URL }}
+        run: |
+          sleep 60
+          for i in $(seq 1 30); do
+            if curl -fs "$RENDER_URL/health"; then echo; echo "Aplicación en línea: $RENDER_URL"; exit 0; fi
+            sleep 10
+          done
+          echo "La aplicación no respondió a tiempo"; exit 1

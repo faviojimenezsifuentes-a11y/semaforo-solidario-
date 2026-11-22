@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Semáforo Solidario</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>🚦 Semáforo Solidario</h1>
+    <p>Formalizar, proteger y apoyar a quienes limpian parabrisas en los semáforos.</p>
+    <nav>
+      <button class="tab activo" data-tab="trabajador">Soy trabajador</button>
+      <button class="tab" data-tab="conductor">Soy conductor</button>
+      <button class="tab" data-tab="promotor">Promotor social</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Trabajador: HU01, HU05, HU07 -->
+    <section id="trabajador" class="panel activo">
+      <h2>Registro del trabajador</h2>
+      <form id="form-registro">
+        <label>Tipo de documento
+          <select name="tipo_documento" required>
+            <option value="DNI">DNI</option><option value="CE">Carné de extranjería</option><option value="PTP">PTP</option>
+          </select></label>
+        <label>Número de documento <input name="numero_documento" required pattern="[A-Za-z0-9]{8,12}"></label>
+        <label>Nombres y apellidos <input name="nombres" required minlength="3"></label>
+        <label>Fecha de nacimiento <input name="fecha_nacimiento" type="date" required></label>
+        <label>Celular <input name="celular" required pattern="9[0-9]{8}" placeholder="9XXXXXXXX"></label>
+        <label>Cruce donde trabajo <input name="cruce" required placeholder="Av. Javier Prado / Av. Arequipa"></label>
+        <label>Horario
+          <select name="horario"><option value="manana">Mañana</option><option value="tarde">Tarde</option><option value="noche">Noche</option></select></label>
+        <button type="submit">Registrarme</button>
+      </form>
+      <div id="resultado-registro" class="resultado" role="status"></div>
+
+      <h2>Mi QR y mis propinas</h2>
+      <form id="form-mi-qr" class="en-linea">
+        <label>Mi código personal <input name="token" required placeholder="código recibido al registrarte"></label>
+        <button type="submit">Ver</button>
+      </form>
+      <div id="mi-qr" class="resultado"></div>
+    </section>
+
+    <!-- Conductor: HU06, HU08, HU12 -->
+    <section id="conductor" class="panel">
+      <h2>Dar una propina</h2>
+      <form id="form-propina">
+        <label>Código del trabajador (QR) <input name="qr_token" required></label>
+        <p id="datos-trabajador" class="nota"></p>
+        <label>Monto (S/)
+          <select name="monto"><option>1</option><option>2</option><option selected>5</option><option>10</option></select></label>
+        <label>Billetera
+          <select name="billetera"><option value="yape">Yape</option><option value="plin">Plin</option></select></label>
+        <button type="submit">Enviar propina</button>
+      </form>
+      <div id="resultado-propina" class="resultado" role="status"></div>
+      <div id="calificar" class="oculto">
+        <p>¿Cómo fue el servicio?</p>
+        <div class="estrellas">
+          <button data-e="1">★1</button><button data-e="2">★2</button><button data-e="3">★3</button><button data-e="4">★4</button><button data-e="5">★5</button>
+        </div>
+      </div>
+
+      <h2>Reportar a un menor trabajando</h2>
+      <p class="nota">El reporte es anónimo: no guardamos tus datos.</p>
+      <form id="form-alerta">
+        <label>Cruce <input name="cruce" required minlength="3"></label>
+        <label>Descripción breve <textarea name="descripcion" maxlength="500"></textarea></label>
+        <button type="submit" class="alerta">Enviar reporte</button>
+      </form>
+      <div id="resultado-alerta" class="resultado" role="status"></div>
+    </section>
+
+    <!-- Promotor: HU03, HU13, HU15 -->
+    <section id="promotor" class="panel">
+      <form id="form-login" class="en-linea">
+        <label>Usuario <input name="usuario" required autocomplete="username"></label>
+        <label>Contraseña <input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit">Ingresar</button>
+      </form>
+      <div id="zona-promotor" class="oculto">
+        <h2>Panel por cruce</h2>
+        <div id="kpis" class="kpis"></div>
+        <table id="tabla-cruces"><thead><tr><th>Cruce</th><th>Trabajadores</th><th>Validados</th><th>Alertas abiertas</th><th>Propinas (S/)</th></tr></thead><tbody></tbody></table>
+        <h2>Registros pendientes de validación</h2>
+        <ul id="pendientes" class="lista"></ul>
+        <h2>Alertas</h2>
+        <ul id="alertas" class="lista"></ul>
+      </div>
+      <div id="resultado-promotor" class="resultado" role="status"></div>
+    </section>
+  </main>
+  <footer>Proyecto académico · PFC III · <a href="/docs">Documentación de la API</a></footer>
+</body>
+</html>
