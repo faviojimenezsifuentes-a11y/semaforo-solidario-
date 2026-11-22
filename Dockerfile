@@ -8,8 +8,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Parches de seguridad del sistema operativo (p. ej. zlib) detectados por Trivy
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Actualiza pip y setuptools (versión de la imagen base vulnerable a CVE-2025-47273)
+RUN pip install --upgrade pip "setuptools>=78.1.1" && pip install -r requirements.txt
 
 COPY app ./app
 
