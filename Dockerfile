@@ -12,8 +12,11 @@ WORKDIR /app
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Actualiza pip y setuptools (versión de la imagen base vulnerable a CVE-2025-47273)
-RUN pip install --upgrade pip "setuptools>=78.1.1" && pip install -r requirements.txt
+# Instala dependencias y luego elimina pip/setuptools: no se usan en ejecución y
+# traen una copia de setuptools vulnerable (CVE-2025-47273) detectada por Trivy.
+RUN pip install -r requirements.txt \
+    && pip uninstall -y setuptools wheel || true \
+    && python -m pip uninstall -y pip
 
 COPY app ./app
 
