@@ -414,10 +414,20 @@ $("#form-contacto").addEventListener("submit", (e) => {
 let ultimaPropina = null;
 const formPropina = $("#form-propina");
 
+function montoElegido() {
+  const d = datosDe(formPropina);
+  return d.monto === "otro" ? Number(d.monto_otro) : Number(d.monto);
+}
 function actualizarBotonPropina() {
   const d = datosDe(formPropina);
-  $("#c-enviar").textContent = `Enviar ${soles(d.monto).replace(".00", "")} con ${d.billetera === "yape" ? "Yape" : "Plin"}`;
+  const otro = d.monto === "otro";
+  $("#c-otro").hidden = !otro;
+  formPropina.monto_otro.required = otro;
+  const monto = montoElegido();
+  const texto = monto > 0 ? soles(monto).replace(".00", "") : "la propina";
+  $("#c-enviar").textContent = `Enviar ${texto} con ${d.billetera === "yape" ? "Yape" : "Plin"}`;
 }
+formPropina.addEventListener("input", actualizarBotonPropina);
 formPropina.addEventListener("change", actualizarBotonPropina);
 
 async function cargarDestinatario(token) {
@@ -441,7 +451,7 @@ formPropina.addEventListener("submit", (e) => {
     const d = datosDe(e.target);
     try {
       const r = await api("/api/propinas", { metodo: "POST",
-        datos: { qr_token: d.qr_token.trim(), monto: Number(d.monto), billetera: d.billetera } });
+        datos: { qr_token: d.qr_token.trim(), monto: montoElegido(), billetera: d.billetera } });
       ultimaPropina = r.id;
       $("#c-gracias-msj").textContent = r.mensaje;
       formPropina.hidden = true;
@@ -531,8 +541,65 @@ async function refrescarEquipo() {
   }
 }
 
+function filtrosPanel() {
+  const q = new URLSearchParams();
+  Object.entries(datosDe($("#form-filtros"))).forEach(([k, v]) => { if (v) q.set(k, v); });
+  return q.toString() ? "?" + q : "";
+}
+$("#form-filtros").addEventListener("submit", (e) => { e.preventDefault(); refrescarEquipo(); });
+$("#form-filtros").addEventListener("reset", () => setTimeout(refrescarEquipo));
+
+const SVG = "http://www.w3.org/2000/svg";
+function svgEl(etiqueta, attrs = {}, texto) {
+  const n = document.createElementNS(SVG, etiqueta);
+  Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+  if (texto !== undefined) n.textContent = texto;
+  return n;
+}
+function pintarMapa(cruces) {
+  const mapa = $("#e-mapa");
+  const ubicados = cruces.filter((c) => c.lat !== null && c.lng !== null);
+  const sinUbicar = cruces.length - ubicados.length;
+  $("#e-sin-ubicar").textContent = sinUbicar
+    ? `${sinUbicar} ${sinUbicar === 1 ? "cruce no está" : "cruces no están"} en el catálogo y solo aparece${sinUbicar === 1 ? "" : "n"} en la tabla.` : "";
+  if (!ubicados.length) {
+    mapa.replaceChildren(svgEl("text", { x: 360, y: 150, "text-anchor": "middle" }, "No hay cruces ubicados para este filtro."));
+    return;
+  }
+  // Encuadre fijo de Lima centro-sur para que los puntos no salten al filtrar
+  const lng0 = -77.10, lng1 = -77.00, lat0 = -12.145, lat1 = -12.06;
+  const X = (lng) => 40 + (lng - lng0) / (lng1 - lng0) * 640;
+  const Y = (lat) => 20 + (lat1 - lat) / (lat1 - lat0) * 260;
+  const max = Math.max(1, ...ubicados.map((c) => c.trabajadores));
+  const hijos = [];
+  [-77.08, -77.06, -77.04, -77.02].forEach((l) => hijos.push(svgEl("line", { class: "calle", x1: X(l), x2: X(l), y1: 10, y2: 290 })));
+  [-12.08, -12.10, -12.12].forEach((l) => hijos.push(svgEl("line", { class: "calle", x1: 20, x2: 700, y1: Y(l), y2: Y(l) })));
+  // Etiquetas alternadas arriba/abajo (ordenadas de oeste a este) para que no se encimen
+  [...ubicados].sort((a, b) => a.lng - b.lng).forEach((c, i) => {
+    const g = svgEl("g");
+    const r = 8 + 14 * Math.sqrt(c.trabajadores / max);
+    const cx = X(c.lng), cy = Y(c.lat);
+    const punto = svgEl("circle", { class: "punto" + (c.alertas_abiertas ? " alerta" : ""), cx, cy, r });
+    punto.append(svgEl("title", {}, `${c.cruce}: ${c.trabajadores} trabajadores, ${c.alertas_abiertas} alertas abiertas`));
+    const tx = Math.min(Math.max(cx, 130), 590);
+    const arriba = i % 2 === 0;
+    const y1 = arriba ? cy - r - 22 : cy + r + 16;
+    g.append(punto,
+      svgEl("text", { x: tx, y: y1, "text-anchor": "middle" }, c.cruce),
+      svgEl("text", { class: "distrito", x: tx, y: y1 + 14, "text-anchor": "middle" },
+        `${c.distrito}: ${c.trabajadores} trab., ${c.alertas_abiertas} ${c.alertas_abiertas === 1 ? "alerta" : "alertas"}`));
+    hijos.push(g);
+  });
+  mapa.replaceChildren(...hijos);
+}
+
 async function pintarPanel() {
-  const p = await api("/api/panel", { token: eTok() });
+  const p = await api("/api/panel" + filtrosPanel(), { token: eTok() });
+  const sel = $("#f-distrito");
+  const elegido = sel.value;
+  sel.replaceChildren(el("option", { value: "" }, "Todos"), ...p.distritos.map((d) => el("option", { value: d }, d)));
+  sel.value = elegido;
+  pintarMapa(p.por_cruce);
   const dato = (t, v, tono) => el("div", { dataset: { tono: tono || "" } }, el("dt", {}, t), el("dd", {}, String(v)));
   $("#e-kpis").replaceChildren(
     dato("Trabajadores", p.total_trabajadores),
@@ -548,13 +615,13 @@ async function pintarPanel() {
     const barra = el("span", { class: "barra-cruce", "aria-hidden": "true" });
     barra.style.width = `${(c.alertas_abiertas / max) * 100}%`;
     return el("tr", {},
-      el("th", { scope: "row" }, c.cruce),
+      el("th", { scope: "row" }, c.cruce, el("br"), el("span", { class: "nota" }, c.distrito)),
       el("td", { class: "num" }, String(c.trabajadores)),
       el("td", { class: "num" }, String(c.validados)),
       el("td", { class: "num" }, String(c.alertas_abiertas), c.alertas_abiertas ? barra : null),
       el("td", { class: "num" }, String(c.kits_entregados)),
       el("td", { class: "num" }, soles(c.propinas_total)));
-  }) : [el("tr", {}, el("td", { colspan: "6", class: "vacio" }, "Todavía no hay cruces con registros."))]));
+  }) : [el("tr", {}, el("td", { colspan: "6", class: "vacio" }, "No hay registros para este filtro."))]));
 }
 
 const TONO_ALERTA = { nueva: "rojo", vencida: "rojo", derivada: "verde" };
