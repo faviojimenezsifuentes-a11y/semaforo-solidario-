@@ -1,2 +1,6 @@
 # Falso positivo revisado: clave de prueba ya eliminada del test (commit b223c3d). No es una credencial real.
 b223c3dac332ca2fb1d6ed7aaf428d80b1956704:tests/test_unitarios.py:generic-api-key:32
+
+# Falsos positivos en pruebas: contraseña ficticia de test y token QR de prueba.
+36bc774b0e84594ad02571b686b7d29cece9074a:tests/test_api.py:generic-api-key:75
+36bc774b0e84594ad02571b686b7d29cece9074a:tests/test_api.py:generic-api-key:103
