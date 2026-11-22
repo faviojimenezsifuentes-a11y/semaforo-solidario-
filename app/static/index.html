@@ -3,98 +3,376 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2e3238">
+  <meta name="description" content="Propinas digitales, protección social y alertas para quienes limpian parabrisas en los semáforos.">
   <title>Semáforo Solidario</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <header>
-    <h1>🚦 Semáforo Solidario</h1>
-    <p>Formalizar, proteger y apoyar a quienes limpian parabrisas en los semáforos.</p>
-    <nav>
-      <button class="tab activo" data-tab="trabajador">Soy trabajador</button>
-      <button class="tab" data-tab="conductor">Soy conductor</button>
-      <button class="tab" data-tab="promotor">Promotor social</button>
+  <a class="saltar" href="#contenido">Ir al contenido</a>
+
+  <header class="barra">
+    <a class="marca" href="#inicio" aria-label="Semáforo Solidario, inicio">
+      <span class="luces" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Semáforo Solidario</span>
+    </a>
+    <nav class="roles" aria-label="Secciones">
+      <a href="#trabajador" data-ruta="trabajador">Trabajo en un cruce</a>
+      <a href="#conductor" data-ruta="conductor">Estoy manejando</a>
+      <a href="#equipo" data-ruta="equipo">Equipo social</a>
     </nav>
   </header>
 
-  <main>
-    <!-- Trabajador: HU01, HU05, HU07 -->
-    <section id="trabajador" class="panel activo">
-      <h2>Registro del trabajador</h2>
-      <form id="form-registro">
-        <label>Tipo de documento
-          <select name="tipo_documento" required>
-            <option value="DNI">DNI</option><option value="CE">Carné de extranjería</option><option value="PTP">PTP</option>
-          </select></label>
-        <label>Número de documento <input name="numero_documento" required pattern="[A-Za-z0-9]{8,12}"></label>
-        <label>Nombres y apellidos <input name="nombres" required minlength="3"></label>
-        <label>Fecha de nacimiento <input name="fecha_nacimiento" type="date" required></label>
-        <label>Celular <input name="celular" required pattern="9[0-9]{8}" placeholder="9XXXXXXXX"></label>
-        <label>Cruce donde trabajo <input name="cruce" required placeholder="Av. Javier Prado / Av. Arequipa"></label>
-        <label>Horario
-          <select name="horario"><option value="manana">Mañana</option><option value="tarde">Tarde</option><option value="noche">Noche</option></select></label>
-        <button type="submit">Registrarme</button>
-      </form>
-      <div id="resultado-registro" class="resultado" role="status"></div>
+  <main id="contenido" tabindex="-1">
 
-      <h2>Mi QR y mis propinas</h2>
-      <form id="form-mi-qr" class="en-linea">
-        <label>Mi código personal <input name="token" required placeholder="código recibido al registrarte"></label>
-        <button type="submit">Ver</button>
-      </form>
-      <div id="mi-qr" class="resultado"></div>
+    <!-- ===================== INICIO ===================== -->
+    <section class="vista" data-vista="inicio">
+      <div class="portada">
+        <h1>Cada luz roja<br>es una jornada de trabajo.</h1>
+        <p class="bajada">En los cruces de la ciudad hay personas que limpian parabrisas a cambio de una propina,
+          sin ingreso fijo ni protección. Semáforo Solidario les da un perfil, propinas digitales con Yape o Plin
+          y una ruta hacia la salud, la capacitación y el empleo formal.</p>
+        <p class="cifras" id="cifras" aria-live="polite"></p>
+      </div>
+      <div class="cebra" aria-hidden="true"></div>
+
+      <div class="entradas">
+        <a class="entrada" href="#trabajador">
+          <span class="foco foco-ambar" aria-hidden="true"></span>
+          <strong>Trabajo en un cruce</strong>
+          <span>Regístrate, obtén tu QR para recibir propinas y encuentra programas, cursos y empleo.</span>
+        </a>
+        <a class="entrada" href="#conductor">
+          <span class="foco foco-rojo" aria-hidden="true"></span>
+          <strong>Estoy manejando</strong>
+          <span>Deja una propina digital mientras esperas la luz verde, o avisa si ves a un menor trabajando.</span>
+        </a>
+        <a class="entrada" href="#equipo">
+          <span class="foco foco-verde" aria-hidden="true"></span>
+          <strong>Equipo social</strong>
+          <span>Valida registros, atiende alertas, entrega kits de seguridad y prioriza cruces.</span>
+        </a>
+      </div>
     </section>
 
-    <!-- Conductor: HU06, HU08, HU12 -->
-    <section id="conductor" class="panel">
-      <h2>Dar una propina</h2>
-      <form id="form-propina">
-        <label>Código del trabajador (QR) <input name="qr_token" required></label>
-        <p id="datos-trabajador" class="nota"></p>
-        <label>Monto (S/)
-          <select name="monto"><option>1</option><option>2</option><option selected>5</option><option>10</option></select></label>
-        <label>Billetera
-          <select name="billetera"><option value="yape">Yape</option><option value="plin">Plin</option></select></label>
-        <button type="submit">Enviar propina</button>
-      </form>
-      <div id="resultado-propina" class="resultado" role="status"></div>
-      <div id="calificar" class="oculto">
-        <p>¿Cómo fue el servicio?</p>
-        <div class="estrellas">
-          <button data-e="1">★1</button><button data-e="2">★2</button><button data-e="3">★3</button><button data-e="4">★4</button><button data-e="5">★5</button>
+    <!-- ===================== TRABAJADOR ===================== -->
+    <section class="vista" data-vista="trabajador" hidden>
+
+      <!-- Sin sesión: ingreso con OTP (HU02) o registro (HU01) -->
+      <div id="t-acceso" class="angosto">
+        <h1>Trabajo en un cruce</h1>
+        <div class="pestanas" role="tablist">
+          <button role="tab" aria-selected="true" data-pestana="t-ingresar">Ya tengo cuenta</button>
+          <button role="tab" aria-selected="false" data-pestana="t-registro">Crear mi cuenta</button>
+        </div>
+
+        <div id="t-ingresar" role="tabpanel">
+          <form id="form-otp-pedir" class="formulario">
+            <label>Mi número de celular
+              <input name="celular" inputmode="numeric" autocomplete="tel" required pattern="9[0-9]{8}" placeholder="9XXXXXXXX">
+            </label>
+            <button class="primario" type="submit">Enviarme un código</button>
+          </form>
+          <form id="form-otp-verificar" class="formulario" hidden>
+            <p class="aviso" id="otp-aviso"></p>
+            <label>Código de 6 dígitos
+              <input name="codigo" inputmode="numeric" autocomplete="one-time-code" required pattern="[0-9]{6}" maxlength="6" class="codigo">
+            </label>
+            <button class="primario" type="submit">Ingresar</button>
+            <button class="enlace" type="button" id="otp-otro">Pedir otro código</button>
+          </form>
+          <p class="mensaje" id="t-ingresar-msj" role="status"></p>
+        </div>
+
+        <div id="t-registro" role="tabpanel" hidden>
+          <form id="form-registro" class="formulario">
+            <div class="fila">
+              <label>Documento
+                <select name="tipo_documento" required>
+                  <option value="DNI">DNI</option>
+                  <option value="CE">Carné de extranjería</option>
+                  <option value="PTP">PTP</option>
+                </select>
+              </label>
+              <label>Número
+                <input name="numero_documento" required pattern="[A-Za-z0-9]{8,12}" autocomplete="off">
+              </label>
+            </div>
+            <label>Nombres y apellidos <input name="nombres" required minlength="3" autocomplete="name"></label>
+            <div class="fila">
+              <label>Fecha de nacimiento <input name="fecha_nacimiento" type="date" required></label>
+              <label>Celular <input name="celular" inputmode="numeric" required pattern="9[0-9]{8}" placeholder="9XXXXXXXX"></label>
+            </div>
+            <label>Cruce donde trabajo
+              <input name="cruce" required minlength="3" list="cruces-conocidos" placeholder="Av. Javier Prado / Av. Arequipa">
+            </label>
+            <fieldset class="opciones">
+              <legend>Horario</legend>
+              <label><input type="radio" name="horario" value="manana" checked> Mañana</label>
+              <label><input type="radio" name="horario" value="tarde"> Tarde</label>
+              <label><input type="radio" name="horario" value="noche"> Noche</label>
+            </fieldset>
+            <button class="primario" type="submit">Crear mi cuenta</button>
+          </form>
+          <p class="mensaje" id="t-registro-msj" role="status"></p>
         </div>
       </div>
 
-      <h2>Reportar a un menor trabajando</h2>
-      <p class="nota">El reporte es anónimo: no guardamos tus datos.</p>
-      <form id="form-alerta">
-        <label>Cruce <input name="cruce" required minlength="3"></label>
-        <label>Descripción breve <textarea name="descripcion" maxlength="500"></textarea></label>
-        <button type="submit" class="alerta">Enviar reporte</button>
-      </form>
-      <div id="resultado-alerta" class="resultado" role="status"></div>
+      <!-- Con sesión -->
+      <div id="t-app" hidden>
+        <div class="saludo">
+          <div>
+            <h1 id="t-nombre"></h1>
+            <p class="estado" id="t-estado"></p>
+          </div>
+          <button class="enlace" id="t-salir" type="button">Salir</button>
+        </div>
+
+        <nav class="secciones" aria-label="Mis secciones">
+          <button data-sec="sec-qr" aria-current="true">Mi QR</button>
+          <button data-sec="sec-propinas">Propinas</button>
+          <button data-sec="sec-programas">Programas</button>
+          <button data-sec="sec-cursos">Cursos y empleo</button>
+          <button data-sec="sec-cruce">Mi cruce</button>
+        </nav>
+
+        <div id="sec-qr" class="seccion">
+          <div class="qr-tarjeta">
+            <div class="qr-marco" id="qr-marco"></div>
+            <div>
+              <h2>Tu código para recibir propinas</h2>
+              <p>Imprímelo y llévalo en el chaleco. El conductor lo escanea con la cámara y te envía la propina por Yape o Plin.</p>
+              <a class="boton secundario" id="qr-descargar" download="mi-qr-semaforo-solidario.svg">Descargar para imprimir</a>
+            </div>
+          </div>
+          <dl class="resumen" id="t-resumen"></dl>
+        </div>
+
+        <div id="sec-propinas" class="seccion" hidden>
+          <h2>Mis propinas digitales</h2>
+          <ul class="movimientos" id="t-propinas"></ul>
+        </div>
+
+        <div id="sec-programas" class="seccion" hidden>
+          <h2>Programas para ti</h2>
+          <p class="nota">Según tu documento y tu edad. Pide orientación y un promotor social te ayuda con los trámites.</p>
+          <ul class="tarjetas" id="t-programas"></ul>
+        </div>
+
+        <div id="sec-cursos" class="seccion" hidden>
+          <h2>Capacitaciones</h2>
+          <ul class="tarjetas" id="t-cursos"></ul>
+          <h2>Ofertas de empleo formal</h2>
+          <ul class="tarjetas" id="t-empleos"></ul>
+        </div>
+
+        <div id="sec-cruce" class="seccion" hidden>
+          <h2>Dónde trabajo</h2>
+          <form id="form-cruce" class="formulario">
+            <label>Cruce <input name="cruce" required minlength="3" list="cruces-conocidos"></label>
+            <fieldset class="opciones">
+              <legend>Horario</legend>
+              <label><input type="radio" name="horario" value="manana"> Mañana</label>
+              <label><input type="radio" name="horario" value="tarde"> Tarde</label>
+              <label><input type="radio" name="horario" value="noche"> Noche</label>
+            </fieldset>
+            <button class="primario" type="submit">Guardar cruce</button>
+          </form>
+          <ul class="historial" id="t-historial"></ul>
+
+          <h2>Contacto de emergencia</h2>
+          <p class="nota">Recibe un SMS cuando uses el botón de ayuda.</p>
+          <form id="form-contacto" class="formulario">
+            <div class="fila">
+              <label>Nombre <input name="nombre" required minlength="2"></label>
+              <label>Celular <input name="celular" inputmode="numeric" required pattern="9[0-9]{8}"></label>
+            </div>
+            <button class="secundario" type="submit">Guardar contacto</button>
+          </form>
+        </div>
+        <p class="mensaje" id="t-msj" role="status"></p>
+
+        <!-- HU14: botón de emergencia (mantener 3 s, cancelar en 10 s) -->
+        <div class="sos" id="sos">
+          <button type="button" id="sos-boton" aria-describedby="sos-ayuda">
+            <span class="sos-anillo" aria-hidden="true"></span>Ayuda
+          </button>
+          <span id="sos-ayuda" class="sos-ayuda">Mantén presionado 3 segundos</span>
+        </div>
+      </div>
     </section>
 
-    <!-- Promotor: HU03, HU13, HU15 -->
-    <section id="promotor" class="panel">
-      <form id="form-login" class="en-linea">
-        <label>Usuario <input name="usuario" required autocomplete="username"></label>
-        <label>Contraseña <input name="password" type="password" required autocomplete="current-password"></label>
-        <button type="submit">Ingresar</button>
-      </form>
-      <div id="zona-promotor" class="oculto">
-        <h2>Panel por cruce</h2>
-        <div id="kpis" class="kpis"></div>
-        <table id="tabla-cruces"><thead><tr><th>Cruce</th><th>Trabajadores</th><th>Validados</th><th>Alertas abiertas</th><th>Propinas (S/)</th></tr></thead><tbody></tbody></table>
-        <h2>Registros pendientes de validación</h2>
-        <ul id="pendientes" class="lista"></ul>
-        <h2>Alertas</h2>
-        <ul id="alertas" class="lista"></ul>
+    <!-- ===================== CONDUCTOR ===================== -->
+    <section class="vista" data-vista="conductor" hidden>
+      <div class="angosto">
+        <h1>Estoy manejando</h1>
+
+        <form id="form-propina" class="formulario">
+          <div id="c-trabajador" class="destinatario" hidden></div>
+          <label id="c-codigo-campo">Código del trabajador
+            <input name="qr_token" required minlength="10" autocomplete="off" placeholder="Escanea su QR o escribe el código">
+          </label>
+          <fieldset class="montos">
+            <legend>Monto</legend>
+            <label><input type="radio" name="monto" value="1"><span>S/ 1</span></label>
+            <label><input type="radio" name="monto" value="2"><span>S/ 2</span></label>
+            <label><input type="radio" name="monto" value="5" checked><span>S/ 5</span></label>
+            <label><input type="radio" name="monto" value="10"><span>S/ 10</span></label>
+          </fieldset>
+          <fieldset class="opciones">
+            <legend>Pagar con</legend>
+            <label><input type="radio" name="billetera" value="yape" checked> Yape</label>
+            <label><input type="radio" name="billetera" value="plin"> Plin</label>
+          </fieldset>
+          <button class="primario grande" type="submit" id="c-enviar">Enviar S/ 5 con Yape</button>
+          <p class="nota">En esta versión piloto el pago se simula: no se cobra dinero real.</p>
+        </form>
+
+        <div id="c-gracias" class="gracias" hidden>
+          <p id="c-gracias-msj"></p>
+          <p>¿Cómo fue el servicio?</p>
+          <div class="estrellas" role="group" aria-label="Calificación de 1 a 5 estrellas">
+            <button type="button" data-e="1" aria-label="1 estrella">★</button>
+            <button type="button" data-e="2" aria-label="2 estrellas">★</button>
+            <button type="button" data-e="3" aria-label="3 estrellas">★</button>
+            <button type="button" data-e="4" aria-label="4 estrellas">★</button>
+            <button type="button" data-e="5" aria-label="5 estrellas">★</button>
+          </div>
+          <button type="button" class="enlace" id="c-omitir">Omitir</button>
+        </div>
+        <p class="mensaje" id="c-msj" role="status"></p>
+
+        <div class="reporte">
+          <h2>¿Ves a un menor trabajando?</h2>
+          <p>Avisa al equipo social. Tu reporte es anónimo: no guardamos tus datos.</p>
+          <form id="form-alerta" class="formulario">
+            <label>Cruce <input name="cruce" required minlength="3" list="cruces-conocidos" placeholder="Av. Brasil / Av. Javier Prado"></label>
+            <label><span>Qué viste <span class="opcional">(opcional)</span></span>
+              <textarea name="descripcion" maxlength="500" rows="3" placeholder="Edad aproximada, ropa, si está acompañado…"></textarea>
+            </label>
+            <button class="peligro" type="submit">Enviar reporte</button>
+          </form>
+          <p class="mensaje" id="c-alerta-msj" role="status"></p>
+        </div>
       </div>
-      <div id="resultado-promotor" class="resultado" role="status"></div>
+    </section>
+
+    <!-- ===================== EQUIPO SOCIAL ===================== -->
+    <section class="vista" data-vista="equipo" hidden>
+      <div id="e-acceso" class="angosto">
+        <h1>Equipo social</h1>
+        <form id="form-login" class="formulario">
+          <label>Usuario <input name="usuario" required autocomplete="username"></label>
+          <label>Contraseña <input name="password" type="password" required autocomplete="current-password"></label>
+          <button class="primario" type="submit">Ingresar</button>
+        </form>
+        <p class="mensaje" id="e-login-msj" role="status"></p>
+      </div>
+
+      <div id="e-app" hidden>
+        <div class="saludo">
+          <div>
+            <h1>Panel por cruce</h1>
+            <p class="nota" id="e-usuario"></p>
+          </div>
+          <div class="acciones">
+            <button class="secundario" id="e-refrescar" type="button">Actualizar</button>
+            <button class="enlace" id="e-salir" type="button">Salir</button>
+          </div>
+        </div>
+
+        <dl class="indicadores" id="e-kpis"></dl>
+
+        <div class="tabla-cont">
+          <table id="e-cruces">
+            <caption>Cruces ordenados por alertas abiertas</caption>
+            <thead><tr><th scope="col">Cruce</th><th scope="col" class="num">Trabajadores</th><th scope="col" class="num">Validados</th>
+              <th scope="col" class="num">Alertas abiertas</th><th scope="col" class="num">Kits</th><th scope="col" class="num">Propinas</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <nav class="secciones" aria-label="Tareas del equipo">
+          <button data-sec="e-sec-alertas" aria-current="true">Alertas</button>
+          <button data-sec="e-sec-validar">Validar registros</button>
+          <button data-sec="e-sec-solicitudes">Solicitudes</button>
+          <button data-sec="e-sec-kits">Kits de seguridad</button>
+          <button data-sec="e-sec-usuarios" data-solo-admin hidden>Usuarios</button>
+        </nav>
+
+        <div id="e-sec-alertas" class="seccion"><ul class="tarjetas" id="e-alertas"></ul></div>
+        <div id="e-sec-validar" class="seccion" hidden><ul class="tarjetas" id="e-pendientes"></ul></div>
+        <div id="e-sec-solicitudes" class="seccion" hidden><ul class="tarjetas" id="e-solicitudes"></ul></div>
+        <div id="e-sec-kits" class="seccion" hidden>
+          <form id="form-kit" class="formulario">
+            <label>Trabajador <select name="trabajador" required id="kit-trabajador"></select></label>
+            <fieldset class="opciones">
+              <legend>Elementos entregados</legend>
+              <label><input type="checkbox" name="elementos" value="chaleco" checked> Chaleco reflectivo</label>
+              <label><input type="checkbox" name="elementos" value="mascarilla" checked> Mascarilla</label>
+              <label><input type="checkbox" name="elementos" value="guantes" checked> Guantes</label>
+            </fieldset>
+            <label id="kit-motivo" hidden>Motivo de la nueva entrega <input name="motivo" maxlength="255"></label>
+            <button class="primario" type="submit">Registrar entrega</button>
+          </form>
+          <ul class="historial" id="e-kits"></ul>
+        </div>
+        <div id="e-sec-usuarios" class="seccion" hidden>
+          <form id="form-usuario" class="formulario">
+            <div class="fila">
+              <label>Usuario <input name="usuario" required pattern="[a-z0-9_.]{4,60}" autocomplete="off"></label>
+              <label>Rol
+                <select name="rol"><option value="promotor">Promotor social</option><option value="admin">Administrador</option></select>
+              </label>
+            </div>
+            <label>Contraseña inicial <input name="password" type="password" required minlength="10" autocomplete="new-password"></label>
+            <button class="primario" type="submit">Crear usuario</button>
+          </form>
+          <ul class="tarjetas" id="e-usuarios"></ul>
+          <h2>Registro de cambios</h2>
+          <ul class="historial" id="e-auditoria"></ul>
+        </div>
+        <p class="mensaje" id="e-msj" role="status"></p>
+      </div>
     </section>
   </main>
-  <footer>Proyecto académico · PFC III · <a href="/docs">Documentación de la API</a></footer>
+
+  <!-- Diálogo reutilizable para motivo de rechazo / observaciones -->
+  <dialog id="dialogo">
+    <form method="dialog" id="dialogo-form">
+      <h2 id="dialogo-titulo"></h2>
+      <label><span id="dialogo-etiqueta"></span>
+        <textarea name="texto" rows="3" required minlength="5" maxlength="500"></textarea>
+      </label>
+      <div class="acciones">
+        <button value="cancelar" formnovalidate class="enlace">Cancelar</button>
+        <button value="ok" class="primario" id="dialogo-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- HU14: cuenta regresiva para cancelar -->
+  <dialog id="sos-dialogo" class="sos-cuenta">
+    <p>Enviando alerta de ayuda en</p>
+    <p class="segundos" id="sos-segundos">10</p>
+    <p>Se avisará al promotor social de turno y a tu contacto de emergencia.</p>
+    <button type="button" class="secundario grande" id="sos-cancelar">Cancelar, fue sin querer</button>
+  </dialog>
+
+  <datalist id="cruces-conocidos">
+    <option value="Av. Javier Prado / Av. Arequipa"></option>
+    <option value="Av. Brasil / Av. Javier Prado"></option>
+    <option value="Av. Benavides / Av. República de Panamá"></option>
+    <option value="Av. Angamos / Av. Paseo de la República"></option>
+    <option value="Av. La Marina / Av. Universitaria"></option>
+  </datalist>
+
+  <footer class="pie">
+    <p>Semáforo Solidario, proyecto académico. Datos personales protegidos según la Ley N.° 29733.
+      <a href="/docs">Documentación de la API</a></p>
+  </footer>
 </body>
 </html>

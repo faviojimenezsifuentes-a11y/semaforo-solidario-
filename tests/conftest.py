@@ -54,3 +54,17 @@ def trabajador_validado(client, promotor):
     v = client.post(f"/api/trabajadores/{cuerpo['id']}/validacion", json={"aprobar": True}, headers=promotor)
     assert v.status_code == 200
     return cuerpo
+
+
+def sesion_trabajador(client, celular="987654321"):
+    """HU02: pide el OTP (modo demo lo devuelve) y lo verifica; retorna la cabecera de sesión."""
+    codigo = client.post("/api/auth/otp/solicitar", json={"celular": celular}).json()["codigo_demo"]
+    r = client.post("/api/auth/otp/verificar", json={"celular": celular, "codigo": codigo})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.fixture()
+def yo(client, trabajador_validado):
+    """Sesión del trabajador validado."""
+    return sesion_trabajador(client)
